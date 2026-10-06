@@ -1,0 +1,982 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plutana-eng · Playlists</title>
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --surface: #141414;
+    --surface-2: #1a1a1a;
+    --border: #2a2a2a;
+    --text: #f0f0f0;
+    --text-muted: #8a8a8a;
+    --accent: #1db954;
+    --radius: 16px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+  body::before {
+    content: "";
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background: radial-gradient(620px 320px at 50% -120px, rgba(29, 185, 84, 0.12), transparent 70%);
+  }
+  .page { position: relative; z-index: 1; max-width: 900px; margin: 0 auto; padding: 48px 20px 80px; }
+
+  /* ---------- profile ---------- */
+  .profile {
+    display: flex; align-items: center; gap: 20px;
+    margin-bottom: 44px; padding-bottom: 30px;
+    border-bottom: 1px solid var(--border);
+  }
+  .profile-avatar {
+    width: 80px; height: 80px; border-radius: 50%;
+    background: linear-gradient(135deg, #1db954, #0f6b32);
+    display: grid; place-items: center;
+    font-size: 2rem; font-weight: 700; color: #04120a; flex-shrink: 0;
+    box-shadow: 0 10px 30px rgba(29, 185, 84, 0.18);
+  }
+  .profile-info h1 { font-size: 1.65rem; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 4px; }
+  .profile-info p { color: var(--text-muted); font-size: 0.9rem; line-height: 1.5; }
+  .profile-info .badge {
+    display: inline-block;
+    background: rgba(29, 185, 84, 0.15);
+    color: var(--accent);
+    font-size: 0.72rem; font-weight: 600;
+    padding: 3px 10px; border-radius: 999px; margin-top: 8px;
+    letter-spacing: 0.3px; text-transform: uppercase;
+  }
+
+  .shelf-label {
+    font-size: 0.78rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 1.2px;
+    color: var(--text-muted); margin-bottom: 20px;
+  }
+
+  /* ---------- card ---------- */
+  .playlist-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    transition: border-color 0.2s, transform 0.2s;
+  }
+  .playlist-card:hover { border-color: #383838; }
+
+  .playlist-card-header { display: flex; gap: 20px; padding: 24px; align-items: flex-start; }
+
+  .cover-wrap {
+    position: relative;
+    width: 150px; height: 150px;
+    border-radius: 12px; flex-shrink: 0; overflow: hidden;
+    background: linear-gradient(135deg, #1db954 0%, #0d4a23 100%);
+    box-shadow: 0 10px 34px rgba(0, 0, 0, 0.55);
+  }
+  .cover-wrap::before {
+    content: "\266B";
+    position: absolute; inset: 0;
+    display: grid; place-items: center;
+    font-size: 3.4rem; color: rgba(255, 255, 255, 0.22);
+    pointer-events: none;
+  }
+  .cover-wrap img {
+    position: relative; width: 100%; height: 100%;
+    object-fit: cover; display: block;
+    opacity: 0; transition: opacity 0.35s;
+  }
+  .cover-wrap img.loaded { opacity: 1; }
+
+  .playlist-meta { min-width: 0; flex: 1; }
+  .playlist-meta h2 {
+    font-size: 1.5rem; font-weight: 700;
+    letter-spacing: -0.4px; margin-bottom: 4px;
+    line-height: 1.15; word-break: break-word;
+  }
+  .playlist-meta .owner { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 4px; }
+  .playlist-meta .playlist-alt {
+    color: #5f5f5f; font-size: 0.76rem; margin-bottom: 10px; font-style: italic;
+  }
+  .playlist-meta .playlist-alt:empty { display: none; }
+  .playlist-meta .description {
+    color: #757575; font-size: 0.83rem;
+    line-height: 1.55; margin-bottom: 14px; max-width: 540px;
+    white-space: pre-line;
+  }
+  .playlist-stats { display: flex; gap: 8px; flex-wrap: wrap; }
+  .stat-pill {
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 999px; padding: 4px 12px;
+    font-size: 0.75rem; color: var(--text-muted); font-weight: 500;
+  }
+  .stat-pill.accent { color: var(--accent); border-color: rgba(29, 185, 84, 0.35); background: rgba(29, 185, 84, 0.08); }
+
+  /* ---------- player ---------- */
+  .player-wrap { padding: 0 24px 24px; }
+  .player-wrap iframe {
+    display: block; width: 100%; border: 0;
+    border-radius: 12px; background: #181818;
+  }
+
+  /* ---------- tracklist ---------- */
+  .tracklist-section { padding: 0 24px 24px; }
+  .tracklist-header {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; margin-bottom: 14px; flex-wrap: wrap;
+  }
+  .tracklist-header h3 {
+    font-size: 0.9rem; font-weight: 600; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: 0.8px;
+  }
+  .tracklist-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn-ghost {
+    background: transparent; border: 1px solid #3a3a3a;
+    color: var(--text); font-size: 0.75rem; font-weight: 600;
+    padding: 7px 14px; border-radius: 8px; cursor: pointer;
+    transition: 0.15s; font-family: inherit;
+  }
+  .btn-ghost:hover:not(:disabled) { background: #252525; border-color: #555; }
+  .btn-ghost:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .filter-input {
+    width: 100%; padding: 11px 14px; border-radius: 8px;
+    border: 1px solid #333; background: #0f0f0f; color: var(--text);
+    font-size: 0.85rem; outline: none; font-family: inherit;
+  }
+  .filter-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(29, 185, 84, 0.12); }
+  .filter-input::placeholder { color: #5c5c5c; }
+
+  .count-label {
+    font-size: 0.74rem; color: #5f5f5f;
+    margin: 8px 2px 12px; min-height: 1em;
+  }
+
+  ol.tracks { list-style: none; padding: 0; margin: 0; }
+  ol.tracks li {
+    display: grid;
+    grid-template-columns: 30px minmax(0, 1fr) auto auto;
+    gap: 12px; align-items: center;
+    padding: 8px 10px; border-radius: 8px; font-size: 0.88rem;
+    transition: background 0.1s;
+  }
+  ol.tracks li:hover { background: #1c1c1c; }
+  .track-num {
+    color: #5a5a5a; font-size: 0.78rem;
+    text-align: right; font-variant-numeric: tabular-nums;
+  }
+  .track-info { min-width: 0; }
+  .track-name {
+    font-weight: 600; display: block;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .track-artist {
+    color: var(--text-muted); font-size: 0.76rem;
+    display: block; overflow: hidden; text-overflow: ellipsis;
+    white-space: nowrap; margin-top: 2px;
+  }
+  .track-duration {
+    color: #6a6a6a; font-size: 0.78rem;
+    font-variant-numeric: tabular-nums;
+  }
+  .track-actions { display: flex; align-items: center; gap: 6px; }
+
+  .btn-icon {
+    width: 28px; height: 28px; border-radius: 50%;
+    border: 1px solid #444; background: transparent;
+    color: var(--text); font-size: 0.6rem;
+    cursor: pointer; display: grid; place-items: center;
+    padding: 0; line-height: 1; transition: 0.15s;
+    text-decoration: none;
+  }
+  .btn-icon:hover:not(:disabled) {
+    background: var(--accent); border-color: var(--accent); color: #04120a;
+  }
+  .btn-icon.on { background: var(--accent); border-color: var(--accent); color: #04120a; }
+  .btn-icon:disabled { opacity: 0.22; cursor: not-allowed; }
+  .btn-icon.link { font-size: 0.75rem; }
+
+  /* ---------- states ---------- */
+  .loading { padding: 40px 20px; text-align: center; color: var(--text-muted); font-size: 0.88rem; }
+  .spinner {
+    display: inline-block; width: 24px; height: 24px;
+    border: 2px solid #333; border-top-color: var(--accent);
+    border-radius: 50%; animation: spin 0.7s linear infinite; margin-bottom: 12px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .skel-row {
+    height: 38px; border-radius: 8px; margin-bottom: 6px;
+    background: linear-gradient(90deg, #161616 0%, #1f1f1f 50%, #161616 100%);
+    background-size: 200% 100%;
+    animation: shimmer 1.3s ease-in-out infinite;
+  }
+  @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+  .error-msg {
+    padding: 20px 22px; color: #ffb3b3; font-size: 0.84rem;
+    line-height: 1.65; background: rgba(255, 60, 60, 0.06);
+    border: 1px solid #3a1a1a; border-radius: 10px;
+  }
+  .error-msg strong { color: #ff8f8f; }
+  .error-msg .hint { color: #9a9a9a; margin-top: 10px; }
+  .error-msg .retry-row { margin-top: 14px; }
+
+  .cap-notice {
+    margin-top: 14px; padding: 12px 14px;
+    background: rgba(29, 185, 84, 0.08);
+    border: 1px solid rgba(29, 185, 84, 0.25);
+    border-radius: 8px;
+    font-size: 0.78rem; line-height: 1.55; color: #9bd1a8;
+  }
+
+  .footer {
+    margin-top: 48px; text-align: center;
+    color: #555; font-size: 0.75rem; line-height: 1.7;
+  }
+
+  @media (max-width: 560px) {
+    .page { padding: 28px 14px 60px; }
+    .profile { flex-direction: column; align-items: flex-start; gap: 14px; }
+    .playlist-card-header { flex-direction: column; gap: 16px; }
+    .cover-wrap { width: 100%; height: auto; aspect-ratio: 1; max-width: 200px; }
+    ol.tracks li { grid-template-columns: 24px minmax(0, 1fr) auto; }
+    .track-duration { display: none; }
+    .player-wrap, .tracklist-section { padding-left: 16px; padding-right: 16px; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="profile">
+    <div class="profile-avatar">P</div>
+    <div class="profile-info">
+      <h1>Plutana-eng</h1>
+      <p>Curated playlists &middot; Spotify</p>
+      <span class="badge" id="badge">Loading&hellip;</span>
+    </div>
+  </header>
+
+  <div class="shelf-label">Shelf</div>
+
+  <article class="playlist-card" id="card">
+    <div class="playlist-card-header">
+      <div class="cover-wrap">
+        <img id="cover" alt="Playlist cover" referrerpolicy="no-referrer">
+      </div>
+      <div class="playlist-meta">
+        <h2 id="pl-name">Plutana-eng</h2>
+        <p class="owner" id="pl-owner">By Plutana-eng</p>
+        <p class="playlist-alt" id="pl-alt"></p>
+        <p class="description" id="pl-desc">A curated playlist by Plutana-eng.</p>
+        <div class="playlist-stats" id="pl-stats"></div>
+      </div>
+    </div>
+
+    <div class="player-wrap">
+      <iframe
+        src="https://open.spotify.com/embed/playlist/2F6iegtRIIdlyDDdcnn7UJ?utm_source=generator&theme=0"
+        width="100%" height="380" frameborder="0"
+        allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+        title="Spotify playlist player">
+      </iframe>
+    </div>
+
+    <div class="tracklist-section">
+      <div class="tracklist-header">
+        <h3>Track list</h3>
+        <div class="tracklist-actions">
+          <button class="btn-ghost" id="copyBtn" type="button" disabled>Copy list</button>
+          <button class="btn-ghost" id="saveBtn" type="button" disabled>Save .txt</button>
+          <button class="btn-ghost" id="csvBtn" type="button" disabled>Save .csv</button>
+        </div>
+      </div>
+      <input class="filter-input" id="filter" type="text"
+             placeholder="Filter tracks by name or artist&hellip;" autocomplete="off" spellcheck="false">
+      <div class="count-label" id="countLabel"></div>
+      <div id="trackContainer"></div>
+    </div>
+  </article>
+
+  <footer class="footer">
+    Playback via Spotify&rsquo;s official embed &middot; Previews are 30 seconds &middot;<br>
+    No audio is downloaded, cached, or proxied by this page.
+  </footer>
+
+</div>
+
+<audio id="player" preload="none"></audio>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ------------------------------------------------------------------ *
+   *  Config
+   * ------------------------------------------------------------------ */
+  var PLAYLIST_ID  = '2F6iegtRIIdlyDDdcnn7UJ';
+  var MAIN_NAME    = 'Plutana-eng';
+  var PLAYLIST_URL = 'https://open.spotify.com/playlist/' + PLAYLIST_ID;
+  var EMBED_PAGE   = 'https://open.spotify.com/embed/playlist/' + PLAYLIST_ID;
+
+  var $ = function (id) { return document.getElementById(id); };
+  var els = {
+    cover:     $('cover'),
+    name:      $('pl-name'),
+    owner:     $('pl-owner'),
+    alt:       $('pl-alt'),
+    desc:      $('pl-desc'),
+    stats:     $('pl-stats'),
+    badge:     $('badge'),
+    cont:      $('trackContainer'),
+    filter:    $('filter'),
+    count:     $('countLabel'),
+    copyBtn:   $('copyBtn'),
+    saveBtn:   $('saveBtn'),
+    csvBtn:    $('csvBtn'),
+    player:    $('player')
+  };
+
+  var state = {
+    meta:     null,
+    tracks:   [],
+    view:     [],
+    query:    '',
+    audioIdx: -1,
+    busy:     false
+  };
+
+  /* ------------------------------------------------------------------ *
+   *  Small helpers
+   * ------------------------------------------------------------------ */
+  function fmtMs(ms) {
+    if (!ms || ms < 0) return '--:--';
+    var s   = Math.floor(ms / 1000);
+    var h   = Math.floor(s / 3600);
+    var m   = Math.floor((s % 3600) / 60);
+    var sec = s % 60;
+    var p   = function (n) { return String(n).padStart(2, '0'); };
+    return h ? h + ':' + p(m) + ':' + p(sec) : m + ':' + p(sec);
+  }
+
+  function fmtLong(ms) {
+    var min = Math.round((ms || 0) / 60000);
+    if (min < 1) return 'less than a minute';
+    var h = Math.floor(min / 60);
+    var m = min % 60;
+    if (!h) return m + ' min';
+    return m ? h + ' hr ' + m + ' min' : h + ' hr';
+  }
+
+  function fetchText(url, timeout) {
+    return new Promise(function (resolve, reject) {
+      var ctrl  = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+      var timer = setTimeout(function () {
+        if (ctrl) { try { ctrl.abort(); } catch (e) {} }
+        reject(new Error('timeout'));
+      }, timeout || 9000);
+
+      fetch(url, ctrl ? { signal: ctrl.signal } : {})
+        .then(function (res) {
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          return res.text();
+        })
+        .then(function (text) { clearTimeout(timer); resolve(text); },
+              function (err)  { clearTimeout(timer); reject(err); });
+    });
+  }
+
+  function firstFulfilled(tasks) {
+    return new Promise(function (resolve, reject) {
+      if (!tasks.length) return reject(new Error('no tasks'));
+      var remaining = tasks.length;
+      var lastErr = null;
+      tasks.forEach(function (task) {
+        task().then(resolve, function (err) {
+          lastErr = err;
+          if (--remaining === 0) reject(lastErr || new Error('all failed'));
+        });
+      });
+    });
+  }
+
+  /* ------------------------------------------------------------------ *
+   *  oEmbed (always CORS-friendly)
+   * ------------------------------------------------------------------ */
+  function fetchOEmbed() {
+    var url = 'https://open.spotify.com/oembed?url=' +
+              encodeURIComponent(PLAYLIST_URL);
+    return fetchText(url, 8000).then(function (txt) {
+      return JSON.parse(txt);
+    });
+  }
+
+  /* ------------------------------------------------------------------ *
+   *  Embed-page scrape (through CORS relays, best effort)
+   * ------------------------------------------------------------------ */
+  var RELAYS = [
+    function (u) { return u; },                                                     // direct
+    function (u) { return 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u); },
+    function (u) { return 'https://corsproxy.io/?url=' + encodeURIComponent(u); },
+    function (u) { return 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(u); }
+  ];
+
+  function deepFind(obj, predicate, depth) {
+    if (!obj || typeof obj !== 'object' || depth > 9) return null;
+    if (predicate(obj)) return obj;
+    var keys = Object.keys(obj);
+    for (var i = 0; i < keys.length; i++) {
+      var found = deepFind(obj[keys[i]], predicate, depth + 1);
+      if (found) return found;
+    }
+    return null;
+  }
+
+  function isPlaylistEntity(o) {
+    if (!o || typeof o !== 'object' || !Array.isArray(o.trackList)) return false;
+    if (o.trackList.length === 0) return true;
+    var first = o.trackList[0];
+    return !!(first && (first.uri || first.title || first.name));
+  }
+
+  function pickCover(entity) {
+    var sources = entity && entity.coverArt && entity.coverArt.sources;
+    if (!Array.isArray(sources) || !sources.length) return null;
+    var best = sources[0];
+    sources.forEach(function (s) { if ((s.width || 0) > (best.width || 0)) best = s; });
+    return best && best.url ? best.url : null;
+  }
+
+  function normalizeTrack(item) {
+    var uri = typeof item.uri === 'string' ? item.uri : '';
+    var id  = /^spotify:track:/.test(uri) ? uri.split(':')[2] : (item.id || '');
+
+    var artists = '';
+    if (typeof item.subtitle === 'string' && item.subtitle.trim()) {
+      artists = item.subtitle.replace(/^by\s+/i, '').trim();
+    } else if (Array.isArray(item.artists)) {
+      artists = item.artists.map(function (a) {
+        return (a && a.name) ? a.name : String(a);
+      }).join(', ');
+    } else if (typeof item.artists === 'string') {
+      artists = item.artists;
+    }
+    if (!artists) artists = 'Unknown artist';
+
+    var duration = item.duration || item.duration_ms || item.durationMs || 0;
+    if (typeof duration !== 'number' || !isFinite(duration)) duration = 0;
+
+    var preview = null;
+    if (item.audioPreview && item.audioPreview.url) preview = item.audioPreview.url;
+    else if (typeof item.preview_url === 'string') preview = item.preview_url;
+    else if (typeof item.previewUrl === 'string')  preview = item.previewUrl;
+
+    return {
+      name:     item.title || item.name || 'Unknown track',
+      artists:  artists,
+      duration: duration,
+      preview:  preview,
+      id:       id
+    };
+  }
+
+  function parseEmbedHtml(html) {
+    var m = html.match(/<script[^>]+id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
+    if (!m) throw new Error('no __NEXT_DATA__');
+    var json;
+    try { json = JSON.parse(m[1]); }
+    catch (e) { throw new Error('bad JSON'); }
+
+    var entity = deepFind(json, isPlaylistEntity, 0);
+    if (!entity) throw new Error('no playlist entity');
+
+    var tracks = (entity.trackList || []).map(normalizeTrack);
+
+    return {
+      name:        entity.name || entity.title || null,
+      owner:       entity.subtitle || null,
+      description: entity.description || null,
+      coverUrl:    pickCover(entity),
+      tracks:      tracks
+    };
+  }
+
+  function loadEmbedData() {
+    var tasks = RELAYS.map(function (build) {
+      return function () {
+        return fetchText(build(EMBED_PAGE), 9000).then(parseEmbedHtml);
+      };
+    });
+    return firstFulfilled(tasks);
+  }
+
+  /* ------------------------------------------------------------------ *
+   *  Rendering
+   * ------------------------------------------------------------------ */
+  function setCover(url) {
+    if (!url) return;
+    // Ask Spotify for the largest version of the same artwork.
+    var big = url.replace('/image/ab67616d00001e02', '/image/ab67616d0000b273');
+    var probe = new Image();
+    probe.referrerPolicy = 'no-referrer';
+    probe.onload = function () {
+      els.cover.src = big;
+      els.cover.classList.add('loaded');
+    };
+    probe.onerror = function () {
+      var probe2 = new Image();
+      probe2.referrerPolicy = 'no-referrer';
+      probe2.onload = function () {
+        els.cover.src = url;
+        els.cover.classList.add('loaded');
+      };
+      probe2.src = url;
+    };
+    probe.src = big;
+  }
+
+  function renderHeader(meta) {
+    els.name.textContent  = MAIN_NAME;
+    els.owner.textContent = 'By ' + MAIN_NAME;
+
+    if (meta.spotifyName && meta.spotifyName !== MAIN_NAME) {
+      els.alt.textContent = 'Spotify playlist \u00B7 ' + meta.spotifyName;
+    } else {
+      els.alt.textContent = '';
+    }
+
+    els.desc.textContent = (meta.description && meta.description.trim())
+      ? meta.description.trim()
+      : 'A curated playlist by ' + MAIN_NAME + '.';
+
+    els.stats.innerHTML = '';
+
+    function pill(text, accent) {
+      var s = document.createElement('span');
+      s.className = 'stat-pill' + (accent ? ' accent' : '');
+      s.textContent = text;
+      els.stats.appendChild(s);
+    }
+
+    if (meta.trackCount) {
+      pill(meta.trackCount + (meta.trackCount === 1 ? ' track' : ' tracks'), true);
+      els.badge.textContent = meta.trackCount + ' tracks';
+    } else {
+      els.badge.textContent = '1 playlist';
+    }
+    if (meta.totalDuration) pill(fmtLong(meta.totalDuration));
+    if (meta.trackCount)     pill('Spotify embed');
+  }
+
+  function showSkeleton() {
+    els.cont.innerHTML = '';
+    var wrap = document.createElement('div');
+    for (var i = 0; i < 7; i++) {
+      var row = document.createElement('div');
+      row.className = 'skel-row';
+      wrap.appendChild(row);
+    }
+    els.cont.appendChild(wrap);
+  }
+
+  function showSpinner(text) {
+    els.cont.innerHTML =
+      '<div class="loading"><div class="spinner"></div><div>' + text + '</div></div>';
+  }
+
+  function stopPreview() {
+    try { els.player.pause(); } catch (e) {}
+    state.audioIdx = -1;
+    var btns = els.cont.querySelectorAll('.btn-icon.on');
+    for (var i = 0; i < btns.length; i++) {
+      btns[i].classList.remove('on');
+      btns[i].textContent = '\u25B6';
+    }
+  }
+
+  function togglePreview(index, btn) {
+    var track = state.view[index];
+    if (!track || !track.preview) return;
+
+    if (state.audioIdx === index && !els.player.paused) {
+      stopPreview();
+      return;
+    }
+    stopPreview();
+
+    els.player.src = track.preview;
+    var p = els.player.play();
+    if (p && p.catch) p.catch(function () {});
+
+    state.audioIdx = index;
+    btn.classList.add('on');
+    btn.textContent = '\u275A\u275A';
+  }
+
+  function updateCount() {
+    var total = state.tracks.length;
+    var shown = state.view.length;
+    if (!total) { els.count.textContent = ''; return; }
+    if (state.query.trim()) {
+      els.count.textContent = 'Showing ' + shown + ' of ' + total + ' tracks';
+    } else {
+      els.count.textContent = total + (total === 1 ? ' track' : ' tracks');
+    }
+  }
+
+  function renderTracks() {
+    stopPreview();
+    els.cont.innerHTML = '';
+
+    var q = state.query.trim().toLowerCase();
+    state.view = q
+      ? state.tracks.filter(function (t) {
+          return t.name.toLowerCase().indexOf(q) !== -1 ||
+                 t.artists.toLowerCase().indexOf(q) !== -1;
+        })
+      : state.tracks;
+
+    updateCount();
+
+    if (!state.view.length) {
+      var empty = document.createElement('div');
+      empty.className = 'loading';
+      empty.textContent = state.tracks.length
+        ? 'No tracks match that filter.'
+        : 'No tracks returned.';
+      els.cont.appendChild(empty);
+      return;
+    }
+
+    var ol = document.createElement('ol');
+    ol.className = 'tracks';
+
+    state.view.forEach(function (t, i) {
+      var li = document.createElement('li');
+
+      var num = document.createElement('span');
+      num.className = 'track-num';
+      num.textContent = i + 1;
+
+      var info = document.createElement('div');
+      info.className = 'track-info';
+
+      var nm = document.createElement('span');
+      nm.className = 'track-name';
+      nm.textContent = t.name;
+      nm.title = t.name;
+
+      var ar = document.createElement('span');
+      ar.className = 'track-artist';
+      ar.textContent = t.artists;
+      ar.title = t.artists;
+
+      info.appendChild(nm);
+      info.appendChild(ar);
+
+      var dur = document.createElement('span');
+      dur.className = 'track-duration';
+      dur.textContent = fmtMs(t.duration);
+
+      var actions = document.createElement('div');
+      actions.className = 'track-actions';
+
+      var play = document.createElement('button');
+      play.type = 'button';
+      play.className = 'btn-icon';
+      play.textContent = '\u25B6';
+      play.disabled = !t.preview;
+      play.title = t.preview
+        ? 'Play 30-second preview'
+        : 'No preview available for this track';
+      play.setAttribute('aria-label', 'Play preview of ' + t.name);
+      play.addEventListener('click', (function (idx, b) {
+        return function () { togglePreview(idx, b); };
+      })(i, play));
+      actions.appendChild(play);
+
+      if (t.id) {
+        var link = document.createElement('a');
+        link.className = 'btn-icon link';
+        link.href = 'https://open.spotify.com/track/' + t.id;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.textContent = '\u2197';
+        link.title = 'Open in Spotify';
+        link.setAttribute('aria-label', 'Open ' + t.name + ' in Spotify');
+        actions.appendChild(link);
+      }
+
+      li.appendChild(num);
+      li.appendChild(info);
+      li.appendChild(dur);
+      li.appendChild(actions);
+      ol.appendChild(li);
+    });
+
+    els.cont.appendChild(ol);
+
+    if (state.tracks.length >= 100) {
+      var notice = document.createElement('div');
+      notice.className = 'cap-notice';
+      notice.textContent =
+        'Showing the first ' + state.tracks.length + ' tracks \u2014 Spotify\u2019s ' +
+        'public embed data caps playlists at 100 entries. The player above still ' +
+        'loads every track.';
+      els.cont.appendChild(notice);
+    }
+  }
+
+  function renderEmpty() {
+    els.cont.innerHTML = '<div class="loading">This playlist is empty.</div>';
+    updateCount();
+  }
+
+  function renderUnavailable() {
+    stopPreview();
+    els.cont.innerHTML = '';
+    var box = document.createElement('div');
+    box.className = 'error-msg';
+    box.innerHTML =
+      '<strong>Track list could not be loaded.</strong><br>' +
+      'Spotify doesn\u2019t let other sites read playlist data directly, so this ' +
+      'page tries a few public CORS relays \u2014 all of them failed just now.' +
+      '<div class="hint">The Spotify player above still works and plays the full ' +
+      'playlist with no limits.</div>';
+
+    var row = document.createElement('div');
+    row.className = 'retry-row';
+    var retry = document.createElement('button');
+    retry.type = 'button';
+    retry.className = 'btn-ghost';
+    retry.textContent = 'Try again';
+    retry.addEventListener('click', function () { init(); });
+    row.appendChild(retry);
+    box.appendChild(row);
+
+    els.cont.appendChild(box);
+    updateCount();
+  }
+
+  /* ------------------------------------------------------------------ *
+   *  Export helpers
+   * ------------------------------------------------------------------ */
+  function tracklistText() {
+    if (!state.tracks.length) return '';
+    var meta = state.meta || {};
+    var lines = [
+      MAIN_NAME + (meta.spotifyName && meta.spotifyName !== MAIN_NAME
+        ? ' \u2014 ' + meta.spotifyName : ''),
+      'By ' + MAIN_NAME,
+      PLAYLIST_URL,
+      state.tracks.length + ' tracks \u00B7 exported ' + new Date().toLocaleString(),
+      new Array(61).join('-')
+    ];
+    state.tracks.forEach(function (t, i) {
+      lines.push(
+        String(i + 1).padStart(3, ' ') + '. ' +
+        t.artists + ' \u2014 ' + t.name +
+        '  [' + fmtMs(t.duration) + ']'
+      );
+    });
+    return lines.join('\n');
+  }
+
+  function tracklistCsv() {
+    if (!state.tracks.length) return '';
+    var esc = function (v) {
+      return '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+    };
+    var rows = [['#', 'Title', 'Artist', 'Duration', 'Spotify URL'].map(esc).join(',')];
+    state.tracks.forEach(function (t, i) {
+      rows.push([
+        i + 1,
+        t.name,
+        t.artists,
+        fmtMs(t.duration),
+        t.id ? 'https://open.spotify.com/track/' + t.id : ''
+      ].map(esc).join(','));
+    });
+    return rows.join('\r\n');
+  }
+
+  function download(filename, text, mime) {
+    var blob = new Blob([text], { type: (mime || 'text/plain') + ';charset=utf-8' });
+    var url  = URL.createObjectURL(blob);
+    var a    = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  }
+
+  function flash(btn, msg) {
+    var original = btn.dataset.label || btn.textContent;
+    btn.dataset.label = original;
+    btn.textContent = msg;
+    btn.disabled = true;
+    setTimeout(function () {
+      btn.textContent = original;
+      btn.disabled = !state.tracks.length;
+    }, 1500);
+  }
+
+  function copyText(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(text);
+    }
+    return new Promise(function (resolve, reject) {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.top = '-1000px';
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        document.execCommand('copy') ? resolve() : reject(new Error('copy failed'));
+      } catch (e) {
+        reject(e);
+      } finally {
+        ta.remove();
+      }
+    });
+  }
+
+  function setExportEnabled(on) {
+    els.copyBtn.disabled = !on;
+    els.saveBtn.disabled = !on;
+    els.csvBtn.disabled  = !on;
+  }
+
+  els.copyBtn.addEventListener('click', function () {
+    var text = tracklistText();
+    if (!text) return;
+    copyText(text).then(
+      function () { flash(els.copyBtn, 'Copied!'); },
+      function () { flash(els.copyBtn, 'Blocked'); }
+    );
+  });
+
+  els.saveBtn.addEventListener('click', function () {
+    var text = tracklistText();
+    if (!text) return;
+    download('plutana-eng-playlist.txt', text, 'text/plain');
+    flash(els.saveBtn, 'Saved!');
+  });
+
+  els.csvBtn.addEventListener('click', function () {
+    var csv = tracklistCsv();
+    if (!csv) return;
+    download('plutana-eng-playlist.csv', csv, 'text/csv');
+    flash(els.csvBtn, 'Saved!');
+  });
+
+  els.filter.addEventListener('input', function () {
+    state.query = els.filter.value;
+    renderTracks();
+  });
+
+  // Press "/" to jump to the filter box.
+  document.addEventListener('keydown', function (e) {
+    if (e.key === '/' && document.activeElement !== els.filter) {
+      e.preventDefault();
+      els.filter.focus();
+    }
+    if (e.key === 'Escape' && document.activeElement === els.filter) {
+      els.filter.value = '';
+      state.query = '';
+      renderTracks();
+      els.filter.blur();
+    }
+  });
+
+  els.player.addEventListener('ended', function () {
+    state.audioIdx = -1;
+    var btns = els.cont.querySelectorAll('.btn-icon.on');
+    for (var i = 0; i < btns.length; i++) {
+      btns[i].classList.remove('on');
+      btns[i].textContent = '\u25B6';
+    }
+  });
+
+  /* ------------------------------------------------------------------ *
+   *  Boot
+   * ------------------------------------------------------------------ */
+  function init() {
+    if (state.busy) return;
+    state.busy = true;
+
+    els.name.textContent  = MAIN_NAME;
+    els.owner.textContent = 'By ' + MAIN_NAME;
+    els.badge.textContent = 'Loading\u2026';
+    setExportEnabled(false);
+    showSkeleton();
+
+    var oembedP = fetchOEmbed().catch(function (e) {
+      console.warn('oEmbed failed:', e);
+      return null;
+    });
+
+    var embedP = loadEmbedData().catch(function (e) {
+      console.warn('Embed scrape failed:', e);
+      return null;
+    });
+
+    Promise.all([oembedP, embedP]).then(function (res) {
+      var oe = res[0];
+      var em = res[1];
+
+      var coverUrl    = (em && em.coverUrl) || (oe && oe.thumbnail_url) || null;
+      var spotifyName = (em && em.name)    || (oe && oe.title)         || null;
+      var description = (em && em.description) || null;
+      var tracks      = (em && em.tracks) || [];
+
+      if (coverUrl) setCover(coverUrl);
+
+      var totalDuration = tracks.reduce(function (a, t) {
+        return a + (t.duration || 0);
+      }, 0);
+
+      state.meta = {
+        spotifyName: spotifyName,
+        description: description,
+        trackCount:  tracks.length,
+        totalDuration: totalDuration
+      };
+
+      renderHeader(state.meta);
+
+      if (tracks.length) {
+        state.tracks = tracks;
+        state.query = '';
+        els.filter.value = '';
+        renderTracks();
+        setExportEnabled(true);
+      } else if (em && em.tracks && em.tracks.length === 0) {
+        state.tracks = [];
+        renderEmpty();
+      } else {
+        state.tracks = [];
+        renderUnavailable();
+      }
+
+      state.busy = false;
+    });
+  }
+
+  init();
+
+})();
+</script>
+</body>
+        </html>
